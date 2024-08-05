@@ -1,4 +1,4 @@
-//jshint esversion:6
+// jshint esversion:6
 
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -10,18 +10,20 @@ const app = express();
 
 app.set('view engine', 'ejs');
 
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-mongoose.connect(process.env.MONGODB_CONNECT_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_CONNECT_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => console.log('MongoDB connection error:', err));
 
-
-
- const itemsSchema = new mongoose.Schema({
+// Define Mongoose Schemas
+const itemsSchema = new mongoose.Schema({
   name: String
- });
+});
 
-const Item = mongoose.model("Item",itemsSchema);
+const Item = mongoose.model("Item", itemsSchema);
 
 const item1 = new Item({
   name: "Welcome to your todo list."
@@ -42,112 +44,102 @@ const listSchema = {
   items: [itemsSchema]
 };
 
-const List = mongoose.model("list", listSchema);
+const List = mongoose.model("List", listSchema);
 
-
-app.get("/", function(req, res) {
-  (async()=>{
-    try{
-      const items = await Item.find();
-      if(items.length === 0){
-        Item.insertMany(defaultItems).then(function(){
-          console.log("Data inserted")
-        }).catch(function(err){
-          console.log(err);
-        });
-        res.redirect('/');
-      } else{
-        res.render("list", {listTitle: "Today", newListItems: items});
-      }
-    } catch(err){
-      console.log(err);
+// Routes
+app.get("/", async (req, res) => {
+  try {
+    const items = await Item.find();
+    if (items.length === 0) {
+      await Item.insertMany(defaultItems);
+      console.log("Default items added to DB");
+      res.redirect('/');
+    } else {
+      res.render("list", { listTitle: "Today", newListItems: items });
     }
-  })()
-  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-app.get("/:customListName", function(req, res){
-  
+app.get("/:customListName", async (req, res) => {
   const customListName = _.capitalize(req.params.customListName);
-
-  List.findOne({name: customListName})
-    .then((docs)=>{
-      if(!docs){
-        // Create a new list
-        const list = new List({
-          name: customListName,
-          items: defaultItems
-        });
-        list.save();
-        res.redirect("/"+customListName);
-      }else{
-        // Show an existing list
-        res.render("list", {listTitle: docs.name, newListItems: docs.items});
-      }
-      
-    })
-    .catch((err)=>{
-      console.log(err);
-    });
-  // console.log(found);
-  
-  
-
-
-
+  try {
+    const foundList = await List.findOne({ name: customListName });
+    if (!foundList) {
+      const list = new List({
+        name: customListName,
+        items: defaultItems
+      });
+      await list.save();
+      res.redirect("/" + customListName);
+    } else {
+      res.render("list", { listTitle: foundList.name, newListItems: foundList.items });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-app.post("/", function(req, res){
+app.post("/", async (req, res) => {
   const itemName = req.body.newItem;
   const listName = req.body.list;
-  
-  const item = new Item({
-    name: itemName
-  });
 
-  if(listName === "Today"){
-    item.save();
+  const item = new Item({ name: itemName });
+
+  if (listName === "Today") {
+    await item.save();
     res.redirect("/");
-  }else{
-    List.findOne({name: listName})
-      .then((foundList)=>{
-        foundList.items.push(item);
-        foundList.save();
-        res.redirect("/"+ listName);
-      })
+  } else {
+    try {
+      const foundList = await List.findOne({ name: listName });
+      foundList.items.push(item);
+      await foundList.save();
+      res.redirect("/" + listName);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+    }
   }
-
-  
 });
 
-app.post("/delete", function(req, res){
+app.post("/delete", async (req, res) => {
   const checkedItemId = req.body.checkbox;
   const listName = req.body.listName;
-  if (listName === "Today"){
-    (async() => {
+
+  if (listName === "Today") {
+    try {
       await Item.findByIdAndDelete(checkedItemId);
-    })()
-  
-    res.redirect("/")
-  }else{
-    List.findOneAndUpdate({name: listName},{$pull: {items: {_id: checkedItemId}}})
-      .then((foundList)=>{
-        res.redirect("/"+listName);
-      })
+      res.redirect("/");
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+    }
+  } else {
+    try {
+      await List.findOneAndUpdate({ name: listName }, { $pull: { items: { _id: checkedItemId } } });
+      res.redirect("/" + listName);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+    }
   }
-  
 });
 
-app.get("/about", function(req, res){
+app.get("/about", (req, res) => {
   res.render("about");
-});
-
-app.listen(3000, function() {
-  console.log("Server started on port 3000");
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
+});
+
+// Server Configuration for Deployment
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, function() {
+  console.log(`Server started on port ${PORT}`);
 });
