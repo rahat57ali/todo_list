@@ -13,6 +13,8 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
+MONGODB_CONNECT_URI="mongodb+srv://admin-rahat:test123@cluster0.ovjbqwa.mongodb.net/todolistDB";
+
 mongoose.connect(process.env.MONGODB_CONNECT_URI, { useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
   .catch((err) => console.log('MongoDB connection error:', err));
@@ -145,7 +147,9 @@ app.get("/about", function(req, res){
   res.render("about");
 });
 
-app.listen(3000, function() {
+PORT = 3000
+
+app.listen(process.env.PORT || 3000, function() {
   console.log("Server started on port 3000");
 });
 
