@@ -138,8 +138,8 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-// Server Configuration for Deployment
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, function() {
-  console.log(`Server started on port ${PORT}`);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke! Error: ' + err.message);
 });
