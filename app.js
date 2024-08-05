@@ -8,7 +8,8 @@ require('dotenv').config();
 
 const app = express();
 
-app.set('view engine', 'ejs');
+app.set('view engine', 'ejs'); // Set the view engine
+app.set('views', __dirname + '/views'); // Set the views directory
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
